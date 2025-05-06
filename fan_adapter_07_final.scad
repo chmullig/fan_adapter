@@ -1,8 +1,8 @@
 $fn = 100;  // Increase circle resolution for smooth curves
 
 //
-// fan_adapter.scad
-// Customizable adapter to mount a PC fan to a cabinet exhaust hole.
+// fan_adapter_07_final.scad
+// Final improved adapter with cable split-channel
 // (BOSL2 must be properly installed to use <BOSL2/std.scad>)
 //
 include <BOSL2/std.scad>
@@ -12,7 +12,7 @@ module fan_adapter(
     top_flange_d        = 131.6, // 30mm larger than hole for sufficient mounting area
     top_flange_thk      = 5,     
     adapter_height      = 45,    // Slightly taller to accommodate larger diameter
-    offset_x            = 0,    // Increased offset to accommodate larger hole
+    offset_x            = 0,     // Increased offset to accommodate larger hole
     offset_y            = 0,     
     bottom_fan_size     = 120,   
     bottom_flange_thk   = 8,     
@@ -27,10 +27,10 @@ module fan_adapter(
     fan_screw_d         = 4,     
     nut_trap_d          = 6,     // 6mm hole for M4 heat–set nut
     nut_trap_depth      = 6,     // Deeper (6mm) to allow 4mm nut embedment
-    // Cable pass–through hole parameters:
-    cable_hole_d        = 20,    // 20mm diameter for cables
-    cable_hole_rot      = 0,     // Rotation angle (degrees) for cable hole (0 = right, 90 = up, etc.)
-    cable_hole_height   = 60     // Vertical exit position (z) for the cable hole
+    // Cable channel parameters:
+    cable_channel_width = 22,    // Width of the cable channel (slightly over 20mm)
+    cable_channel_angle = 135,   // Angle position around adapter (0=right, 90=up, etc.)
+    cable_entry_height  = 12     // Height from bottom for cable entry
 ) {
     // Auto–calculate fan hole spacing if not specified
     actual_fan_hole_spacing = (fan_hole_spacing == undef) ? 
@@ -177,34 +177,76 @@ module fan_adapter(
             }
     }
 
+    // 
+    // 6) Cable Pass-Through - FINAL APPROACH: Split-channel with aerodynamic design
+    //    Creates a dual path for cables with minimal airflow disruption
     //
-    // 6) Cable Pass–Through Hole:
-    //    The cable hole now starts at the center of the 53mm vent and
-    //    exits at the perimeter at a direction given by cable_hole_rot and
-    //    a vertical exit defined by cable_hole_height.
-    //
-    module cable_hole() {
-        // Starting point: center of the vent.
-        start = [offset_x, offset_y, adapter_height];
-        // Exit point: at the vent’s edge (using half of top_hole_d) with the given rotation,
-        // and at the specified vertical (z) position.
-        exit_pt = [
-            offset_x + (top_hole_d/2)*cos(cable_hole_rot * PI/180),
-            offset_y + (top_hole_d/2)*sin(cable_hole_rot * PI/180),
-            cable_hole_height
-        ];
-        // Compute the vector from start to exit.
-        v = [ exit_pt[0] - start[0],
-              exit_pt[1] - start[1],
-              exit_pt[2] - start[2] ];
-        norm_v = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-        // Determine the rotation needed to align the cylinder’s z-axis with vector v.
-        angle = acos(v[2] / norm_v)*180/PI;
-        axis = [ -v[1], v[0], 0 ];
+    module cable_split_channel() {
+        // Direction vector based on the cable hole angle
+        dir_x = cos(cable_channel_angle);
+        dir_y = sin(cable_channel_angle);
         
-        translate(start)
-            rotate(a = angle, v = axis)
-                cylinder(d = cable_hole_d, h = norm_v + 1, center = false);
+        // Calculate inner and outer radius for positioning
+        inner_radius = bottom_hole_d/2;
+        outer_radius = bottom_fan_size/2 + wall_thickness;
+        
+        // Entry point (inside fan area, away from main airflow)
+        entry_x = inner_radius * 0.7 * dir_x;
+        entry_y = inner_radius * 0.7 * dir_y;
+        
+        // Exit point (outside wall)
+        exit_x = outer_radius * dir_x;
+        exit_y = outer_radius * dir_y;
+        
+        // Create channel with aerodynamic shaping and smooth entry
+        hull() {
+            // Entry point
+            translate([entry_x, entry_y, cable_entry_height]) {
+                // Elongated oval for entry to minimize airflow disruption
+                scale([1, 1, 0.5]) 
+                    rotate([0, 0, cable_channel_angle + 90]) 
+                        cylinder(d = cable_channel_width, h = 0.1, center = true);
+                
+                // Curved entry to guide cables
+                rotate([0, 0, cable_channel_angle + 90])
+                    scale([1, 0.6, 1])
+                        rotate_extrude(angle = 180)
+                            translate([cable_channel_width/4, 0, 0])
+                                circle(d = cable_channel_width/2);
+            }
+            
+            // Mid-channel curve point
+            mid_x = (entry_x + exit_x) / 2;
+            mid_y = (entry_y + exit_y) / 2;
+            mid_z = (cable_entry_height + adapter_height * 0.6) / 2;
+            translate([mid_x, mid_y, mid_z])
+                rotate([0, 45, cable_channel_angle])
+                    scale([1, 1, 0.7])
+                        cylinder(d = cable_channel_width, h = 0.1, center = true);
+            
+            // Exit point with flared opening
+            translate([exit_x, exit_y, adapter_height * 0.6])
+                rotate([0, 90, cable_channel_angle])
+                    cylinder(d1 = cable_channel_width, d2 = cable_channel_width * 1.2, h = wall_thickness * 0.6, center = false);
+        }
+        
+        // Ensure clean entry through the bottom flange
+        translate([entry_x, entry_y, bottom_flange_thk/2])
+            rotate([0, 0, cable_channel_angle + 90])
+                scale([1.2, 1, 1])
+                    cylinder(d = cable_channel_width, h = bottom_flange_thk + 0.1, center = true);
+        
+        // Add a smooth transition to the inner airflow space
+        hull() {
+            translate([entry_x, entry_y, cable_entry_height])
+                sphere(d = cable_channel_width * 0.6);
+            
+            translate([entry_x * 0.7, entry_y * 0.7, cable_entry_height * 0.7])
+                sphere(d = cable_channel_width * 0.5);
+            
+            translate([0, 0, cable_entry_height * 0.5])
+                sphere(d = cable_channel_width * 0.3);
+        }
     }
 
     //
@@ -220,21 +262,21 @@ module fan_adapter(
         union() {
             top_screw_holes();
             fan_holes();
-            cable_hole();
+            cable_split_channel();
         }
     }
 }
 
 // Top–level call with updated parameters:
 fan_adapter(
-    top_hole_d = 101.6,       // 4 inches
-    top_flange_d = 131.6,     // 30mm larger than hole for mounting
-    offset_x = 10,            // Offset to accommodate wall
+    top_hole_d = 101.6,        // 4 inches
+    top_flange_d = 131.6,      // 30mm larger than hole for mounting
+    offset_x = 10,             // Offset to accommodate wall
     offset_y = 0,
-    adapter_height = 45,      // Slightly taller for the larger hole
-    bottom_fan_size = 120,    // 120mm fan
-    bottom_hole_d = 116,      // 116mm inner diameter
-    cable_hole_d = 21,        // Slightly larger for cable clearance
-    cable_hole_rot = 90,       // Cable exits opposite to wall
-    cable_hole_height = 10    // Lower vertical position for better cable routing
+    adapter_height = 45,       // Slightly taller for the larger hole
+    bottom_fan_size = 120,     // 120mm fan
+    bottom_hole_d = 116,       // 116mm inner diameter
+    cable_channel_width = 22,  // Slightly over 20mm for cable clearance
+    cable_channel_angle = 225, // Position cable hole away from wall side
+    cable_entry_height = 12    // Height from bottom for cable entry
 );
