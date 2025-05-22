@@ -1,4 +1,4 @@
-// Intake Adapter for Media Console Cabinet V2
+// Intake Adapter for Media Console Cabinet
 // This adapter connects smaller fans (configurable between 60mm and 80mm)
 // to intake slots cut into the bottom of a media console cabinet.
 
@@ -17,6 +17,7 @@ fan_thickness = 25;  // Standard PC fan thickness
 // Derived fan parameters
 fan_inner_diameter = (fan_size == 80) ? 76 : 56;  // Approximate inner diameter
 fan_mount_spacing = (fan_size == 80) ? 71.5 : 50;  // Distance between mounting holes
+fan_frame_width = fan_size;  // Noctua fans have a square frame
 
 // Slot parameters
 slot_width = 19.05;  // 3/4 inch
@@ -119,11 +120,11 @@ module adapter_body() {
             offset(r = wall_thickness) 
             stadium_shape(slot_length, slot_width);
         
-        // Top shape (at the fan)
+        // Top shape (at the fan) - square with rounded corners for Noctua fan
         translate([0, 0, adapter_height])
             rotate([adapter_angle, 0, 0])
             linear_extrude(height = 0.01)
-            circle(d = fan_size + 2 * wall_thickness);
+            rounded_square(fan_frame_width + 2 * wall_thickness, fan_frame_width + 2 * wall_thickness, 3);
     }
 }
 
@@ -139,7 +140,7 @@ module air_channel() {
             linear_extrude(height = 0.01)
             stadium_shape(slot_length, slot_width);
         
-        // Top shape (at the fan)
+        // Top shape (at the fan) - circular airflow path
         translate([0, 0, adapter_height])
             rotate([adapter_angle, 0, 0])
             linear_extrude(height = 0.01)
@@ -241,29 +242,68 @@ module mounting_holes() {
         }
     }
     
-    // Fan mounting holes
+    // Fan mounting holes for square fan frame
     adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle);
     fan_mount_positions = [
-        [fan_mount_spacing/2, fan_mount_spacing/2, 0],
-        [fan_mount_spacing/2, -fan_mount_spacing/2, 0],
-        [-fan_mount_spacing/2, fan_mount_spacing/2, 0],
-        [-fan_mount_spacing/2, -fan_mount_spacing/2, 0]
+        [fan_mount_spacing/2, fan_mount_spacing/2, 0],   // Top-right
+        [fan_mount_spacing/2, -fan_mount_spacing/2, 0],  // Bottom-right
+        [-fan_mount_spacing/2, fan_mount_spacing/2, 0],  // Top-left
+        [-fan_mount_spacing/2, -fan_mount_spacing/2, 0]  // Bottom-left
     ];
     
-    for (pos = fan_mount_positions) {
-        translate([0, 0, adapter_height])
-            rotate([adapter_angle, 0, 0])
-            translate(pos) {
-                // Screw hole
-                cylinder(h = fan_thickness + wall_thickness * 2, 
-                         d = fan_mount_hole_diameter, 
-                         center = true);
+    translate([0, 0, adapter_height])
+        rotate([adapter_angle, 0, 0]) {
+            // Add support platform for the fan (sits flush against the fan)
+            difference() {
+                translate([0, 0, -fan_thickness/2])
+                    linear_extrude(height = 0.01)
+                    difference() {
+                        rounded_square(fan_frame_width, fan_frame_width, 3);
+                        circle(d = fan_inner_diameter);
+                    }
                 
-                // Heat-set nut hole (bottom side)
-                translate([0, 0, -fan_thickness/2 - fan_mount_nut_depth/2])
-                    cylinder(h = fan_mount_nut_depth, 
-                             d = fan_mount_nut_diameter);
+                // Remove support in areas where the heat-set nuts go
+                for (pos = fan_mount_positions) {
+                    translate(pos)
+                        translate([0, 0, -fan_thickness/2 - 0.1])
+                        cylinder(h = 1, d = fan_mount_nut_diameter + 1);
+                }
             }
+            
+            // Create the actual mounting holes with heat-set nut pockets
+            for (pos = fan_mount_positions) {
+                translate(pos) {
+                    // Screw hole through adapter
+                    cylinder(h = fan_thickness + wall_thickness * 2, 
+                             d = fan_mount_hole_diameter, 
+                             center = true);
+                    
+                    // Heat-set nut pocket (bottom side)
+                    translate([0, 0, -fan_thickness/2 - fan_mount_nut_depth/2])
+                        cylinder(h = fan_mount_nut_depth, 
+                                 d = fan_mount_nut_diameter);
+                    
+                    // Tapered entry for heat-set nut
+                    translate([0, 0, -fan_thickness/2 + fan_mount_nut_depth/2])
+                        cylinder(h = 1, 
+                                 d1 = fan_mount_nut_diameter, 
+                                 d2 = fan_mount_hole_diameter);
+                }
+            }
+        }
+}
+
+// Helper module to create a rounded square shape for the fan frame
+module rounded_square(width, height, radius) {
+    hull() {
+        translate([width/2 - radius, height/2 - radius, 0])
+            circle(r = radius);
+        translate([-width/2 + radius, height/2 - radius, 0])
+            circle(r = radius);
+        translate([width/2 - radius, -height/2 + radius, 0])
+            circle(r = radius);
+        translate([-width/2 + radius, -height/2 + radius, 0])
+            circle(r = radius);
     }
 }
 
