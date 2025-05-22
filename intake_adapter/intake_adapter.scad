@@ -30,9 +30,9 @@ wall_thickness = 2.5;  // Minimum wall thickness
 flange_thickness = 2.5;  // Reduced thickness of the flange for shorter height
 
 // Asymmetric flange dimensions
-flange_width_narrow = 2;  // Width of narrow side (near wall) - approximately 1/16"
+flange_width_narrow = 5;  // Width of narrow side (near wall) - increased for mounting holes
 flange_width_wide = 10;   // Width of the wider sides
-flange_width_front = 8;   // Width of the front side (opposite to wall)
+flange_width_front = 10;  // Width of the front side (opposite to wall) - increased for mounting holes
 
 // Mounting hardware parameters
 fan_mount_hole_diameter = 4.5;  // M4 screws
@@ -230,6 +230,9 @@ module mounting_holes() {
         [slot_length/2 + flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0],  // Back-right
         [-slot_length/2 - flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0]  // Back-left
     ];
+    
+    // Ensure the mounting holes have sufficient material around them
+    min_edge_distance = 3;  // Minimum distance from hole edge to flange edge
     
     for (pos = cabinet_mount_positions) {
         translate(pos) {
