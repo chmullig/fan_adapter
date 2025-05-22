@@ -1,4 +1,4 @@
-// Intake Adapter for Media Console Cabinet
+// Intake Adapter for Media Console Cabinet V2
 // This adapter connects smaller fans (configurable between 60mm and 80mm)
 // to intake slots cut into the bottom of a media console cabinet.
 
@@ -26,8 +26,12 @@ slot_radius = slot_width / 2;  // Radius for the rounded ends
 // Adapter parameters
 adapter_angle = 45;  // Angle at which the fan is tilted
 wall_thickness = 2.5;  // Minimum wall thickness
-flange_width = 10;  // Width of the mounting flange
 flange_thickness = 3;  // Thickness of the flange
+
+// Asymmetric flange dimensions
+flange_width_narrow = 2;  // Width of narrow side (near wall) - approximately 1/16"
+flange_width_wide = 10;   // Width of the wider sides
+flange_width_front = 8;   // Width of the front side (opposite to wall)
 
 // Mounting hardware parameters
 fan_mount_hole_diameter = 4.5;  // M4 screws
@@ -50,6 +54,9 @@ module intake_adapter() {
             
             // Main adapter body
             adapter_body();
+            
+            // Add reinforcement ribs
+            reinforcement_ribs();
         }
         
         // Subtract the inner air channel
@@ -60,18 +67,42 @@ module intake_adapter() {
     }
 }
 
-// Flange that attaches to the cabinet
+// Flange that attaches to the cabinet with asymmetric width
 module flange() {
+    // Create the asymmetric flange shape
     linear_extrude(height = flange_thickness) {
         difference() {
-            // Outer shape - stadium/pill shape plus some padding
-            offset(r = flange_width) {
-                stadium_shape(slot_length, slot_width);
-            }
+            // Outer shape - custom asymmetric flange
+            asymmetric_flange_shape();
             
             // Inner cutout - the actual slot
             stadium_shape(slot_length, slot_width);
         }
+    }
+}
+
+// Create asymmetric flange outline shape
+module asymmetric_flange_shape() {
+    hull() {
+        // Top side - narrow (wall side)
+        translate([0, slot_width/2 + flange_width_narrow/2, 0])
+            scale([slot_length + 2*flange_width_wide, flange_width_narrow, 1])
+            circle(d=1);
+            
+        // Bottom side - wider
+        translate([0, -slot_width/2 - flange_width_front/2, 0])
+            scale([slot_length + 2*flange_width_wide, flange_width_front, 1])
+            circle(d=1);
+            
+        // Left side
+        translate([-slot_length/2 - flange_width_wide/2, 0, 0])
+            scale([flange_width_wide, slot_width + flange_width_narrow + flange_width_front, 1])
+            circle(d=1);
+            
+        // Right side
+        translate([slot_length/2 + flange_width_wide/2, 0, 0])
+            scale([flange_width_wide, slot_width + flange_width_narrow + flange_width_front, 1])
+            circle(d=1);
     }
 }
 
@@ -122,14 +153,79 @@ module air_channel() {
         circle(d = fan_inner_diameter);
 }
 
+// Add subtle reinforcement ribs that maintain an airtight seal
+module reinforcement_ribs() {
+    // Define rib parameters
+    rib_height = 3;  // Height of rib (same as flange thickness)
+    rib_width = 2;   // Width of rib base
+    rib_length = 15; // Length of each rib
+    
+    // Location of mounting holes
+    mount_positions = [
+        [slot_length/2 + flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
+        [-slot_length/2 - flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
+        [slot_length/2 + flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0],  // Back-right
+        [-slot_length/2 - flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0]  // Back-left
+    ];
+    
+    // Create reinforcement ribs for each mounting hole, except narrow side
+    for (i = [0, 1]) {  // Only for the front (wider) side
+        pos = mount_positions[i];
+        
+        // Angle of rib pointing toward center
+        angle = atan2(pos[1], pos[0]) + 180;
+        
+        // Create a triangular rib that stays within the flange
+        translate(pos) {
+            rotate([0, 0, angle]) {
+                translate([-rib_length/2, -rib_width/2, 0])
+                linear_extrude(height = rib_height)
+                polygon([
+                    [0, 0],                  // Point at screw hole
+                    [rib_length, 0],         // Extended along flange
+                    [rib_length, rib_width], // Width of rib
+                    [0, rib_width]           // Back to start
+                ]);
+            }
+        }
+    }
+    
+    // Side ribs (along the sides of the flange)
+    side_rib_length = slot_width + flange_width_narrow/2 + flange_width_front/2;
+    side_rib_width = 4;
+    side_rib_offset = 5; // Offset from the edge of the slot
+    
+    // Left side rib
+    translate([-slot_length/2 - side_rib_offset, 0, 0])
+    rotate([0, 0, 90])
+    linear_extrude(height = rib_height)
+    polygon([
+        [-side_rib_length/2, 0],
+        [side_rib_length/2, 0],
+        [side_rib_length/2, side_rib_width],
+        [-side_rib_length/2, side_rib_width]
+    ]);
+    
+    // Right side rib
+    translate([slot_length/2 + side_rib_offset, 0, 0])
+    rotate([0, 0, 90])
+    linear_extrude(height = rib_height)
+    polygon([
+        [-side_rib_length/2, 0],
+        [side_rib_length/2, 0],
+        [side_rib_length/2, side_rib_width],
+        [-side_rib_length/2, side_rib_width]
+    ]);
+}
+
 // Mounting holes for both fan and cabinet
 module mounting_holes() {
-    // Cabinet mounting holes in the flange
+    // Cabinet mounting holes in the flange (asymmetric placement)
     cabinet_mount_positions = [
-        [slot_length/2 + flange_width/2, slot_width/2 + flange_width/2, 0],
-        [slot_length/2 + flange_width/2, -slot_width/2 - flange_width/2, 0],
-        [-slot_length/2 - flange_width/2, slot_width/2 + flange_width/2, 0],
-        [-slot_length/2 - flange_width/2, -slot_width/2 - flange_width/2, 0]
+        [slot_length/2 + flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
+        [-slot_length/2 - flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
+        [slot_length/2 + flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0],  // Back-right
+        [-slot_length/2 - flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0]  // Back-left
     ];
     
     for (pos = cabinet_mount_positions) {
