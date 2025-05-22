@@ -35,8 +35,8 @@ vertical_wall_offset = 6;  // Distance from center to vertical wall
 
 // Asymmetric flange dimensions
 flange_width_back = 4;  // Width of narrow side (near wall) - increased for mounting holes
-flange_width_sides = 15;   // Width of the wider sides
-flange_width_front = 15;  // Width of the front side (opposite to wall) - increased for mounting holes
+flange_width_sides = 10;   // Width of the wider sides
+flange_width_front = 10;  // Width of the front side (opposite to wall) - increased for mounting holes
 
 // Mounting hardware parameters
 fan_mount_hole_diameter = 4.5;  // M4 screws
@@ -184,12 +184,26 @@ module reinforcement_ribs() {
     rib_width = 2;   // Width of rib base
     rib_length = 15; // Length of each rib
     
-    // Location of mounting holes
+    // Calculate flange dimensions for consistent hole placement
+    flange_offset = (flange_width_front - flange_width_back)/2;
+    flange_length = slot_length + 2*flange_width_sides + 2*wall_thickness;
+    flange_width = slot_width + flange_width_back + flange_width_front + 2*wall_thickness;
+    
+    // Distance from corner to mount hole (consistent for all corners)
+    corner_inset = 8;  // Distance from corner to mount hole
+    
+    // Calculate the four corners of the flange with the asymmetric shape
+    top_right = [flange_length/2 - corner_inset, flange_width/2 - flange_offset - corner_inset, 0];
+    top_left = [-flange_length/2 + corner_inset, flange_width/2 - flange_offset - corner_inset, 0];
+    bottom_right = [flange_length/2 - corner_inset, -flange_width/2 - flange_offset + corner_inset, 0];
+    bottom_left = [-flange_length/2 + corner_inset, -flange_width/2 - flange_offset + corner_inset, 0];
+    
+    // Cabinet mounting hole positions
     mount_positions = [
-        [slot_length/2 + flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
-        [-slot_length/2 - flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
-        [slot_length/2 + flange_width_sides/2, slot_width/2 + flange_width_back/2, 0],  // Back-right
-        [-slot_length/2 - flange_width_sides/2, slot_width/2 + flange_width_back/2, 0]  // Back-left
+        bottom_right,  // Front-right
+        bottom_left,   // Front-left
+        top_right,     // Back-right
+        top_left       // Back-left
     ];
     
     // Create reinforcement ribs for each mounting hole, except narrow side
@@ -244,12 +258,26 @@ module reinforcement_ribs() {
 
 // Mounting holes for both fan and cabinet
 module mounting_holes() {
-    // Cabinet mounting holes in the flange (asymmetric placement)
+    // Calculate flange dimensions for consistent hole placement
+    flange_offset = (flange_width_front - flange_width_back)/2;
+    flange_length = slot_length + 2*flange_width_sides + 2*wall_thickness;
+    flange_width = slot_width + flange_width_back + flange_width_front + 2*wall_thickness;
+    
+    // Distance from corner to mount hole (consistent for all corners)
+    corner_inset = 8;  // Distance from corner to mount hole
+    
+    // Calculate the four corners of the flange with the asymmetric shape
+    top_right = [flange_length/2 - corner_inset, flange_width/2 - flange_offset - corner_inset, 0];
+    top_left = [-flange_length/2 + corner_inset, flange_width/2 - flange_offset - corner_inset, 0];
+    bottom_right = [flange_length/2 - corner_inset, -flange_width/2 - flange_offset + corner_inset, 0];
+    bottom_left = [-flange_length/2 + corner_inset, -flange_width/2 - flange_offset + corner_inset, 0];
+    
+    // Cabinet mounting holes positioned relative to flange corners
     cabinet_mount_positions = [
-        [slot_length/2 + flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
-        [-slot_length/2 - flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
-        [slot_length/2 + flange_width_sides/2, slot_width/2 + flange_width_back/2, 0],  // Back-right
-        [-slot_length/2 - flange_width_sides/2, slot_width/2 + flange_width_back/2, 0]  // Back-left
+        bottom_right,  // Front-right
+        bottom_left,   // Front-left
+        top_right,     // Back-right
+        top_left       // Back-left
     ];
     
     // Ensure the mounting holes have sufficient material around them
