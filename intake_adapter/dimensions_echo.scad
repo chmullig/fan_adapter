@@ -12,6 +12,8 @@ echo(str("Mounting holes on wide sides distance from slot edge: ", flange_width_
 echo(str("Mounting holes on front side distance from slot edge: ", flange_width_front/2, "mm"));
 echo(str("Cabinet mount hole diameter: ", cabinet_mount_hole_diameter, "mm"));
 echo(str("Cabinet mount head diameter: ", cabinet_mount_head_diameter, "mm"));
+echo(str("Current adapter height: ", fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20, "mm"));
+echo(str("Current adapter angle: ", adapter_angle, " degrees"));
 
 // Don't render anything
 cube(0);

@@ -25,9 +25,9 @@ slot_length = fan_size + 20;  // Slightly longer than the fan diameter
 slot_radius = slot_width / 2;  // Radius for the rounded ends
 
 // Adapter parameters
-adapter_angle = 45;  // Angle at which the fan is tilted
+adapter_angle = 70;  // Angle at which the fan is tilted (increased for much shorter height)
 wall_thickness = 2.5;  // Minimum wall thickness
-flange_thickness = 3;  // Thickness of the flange
+flange_thickness = 2.5;  // Reduced thickness of the flange for shorter height
 
 // Asymmetric flange dimensions
 flange_width_narrow = 2;  // Width of narrow side (near wall) - approximately 1/16"
@@ -110,7 +110,8 @@ module asymmetric_flange_shape() {
 // Main body of the adapter that transitions from slot to fan
 module adapter_body() {
     // Calculate the height of the adapter based on the angle and fan size
-    adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle);
+    // Using a reduced height to make the adapter much shorter
+    adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20;
     
     // Use hull to create a smooth transition from slot to fan
     hull() {
@@ -131,7 +132,8 @@ module adapter_body() {
 // The inner air channel
 module air_channel() {
     // Calculate the height of the adapter based on the angle and fan size
-    adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle);
+    // Using a reduced height to make the adapter much shorter
+    adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20;
     
     // Use hull to create a smooth inner transition
     hull() {
@@ -243,7 +245,8 @@ module mounting_holes() {
     }
     
     // Fan mounting holes for square fan frame
-    adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle);
+    // Using a reduced height to make the adapter much shorter
+    adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20;
     fan_mount_positions = [
         [fan_mount_spacing/2, fan_mount_spacing/2, 0],   // Top-right
         [fan_mount_spacing/2, -fan_mount_spacing/2, 0],  // Bottom-right
