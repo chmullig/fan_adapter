@@ -21,18 +21,22 @@ fan_frame_width = fan_size;  // Noctua fans have a square frame
 
 // Slot parameters
 slot_width = 19.05;  // 3/4 inch
-slot_length = fan_size + 20;  // Slightly longer than the fan diameter
+slot_length = 1.5 * fan_size + 10;  // Slightly longer than the fan diameter
 slot_radius = slot_width / 2;  // Radius for the rounded ends
 
 // Adapter parameters
-adapter_angle = 70;  // Angle at which the fan is tilted (increased for much shorter height)
-wall_thickness = 2.5;  // Minimum wall thickness
-flange_thickness = 2.5;  // Reduced thickness of the flange for shorter height
+adapter_angle = 60;  // Angle at which the fan is tilted (increased for much shorter height)
+wall_thickness = 2;  // Minimum wall thickness
+flange_thickness = 3;  // Reduced thickness of the flange for shorter height
+
+// Vertical wall parameters
+vertical_wall = true;  // Make the narrow side (near wall) vertical
+vertical_wall_offset = 6;  // Distance from center to vertical wall
 
 // Asymmetric flange dimensions
-flange_width_narrow = 5;  // Width of narrow side (near wall) - increased for mounting holes
-flange_width_wide = 10;   // Width of the wider sides
-flange_width_front = 10;  // Width of the front side (opposite to wall) - increased for mounting holes
+flange_width_back = 4;  // Width of narrow side (near wall) - increased for mounting holes
+flange_width_sides = 15;   // Width of the wider sides
+flange_width_front = 15;  // Width of the front side (opposite to wall) - increased for mounting holes
 
 // Mounting hardware parameters
 fan_mount_hole_diameter = 4.5;  // M4 screws
@@ -57,7 +61,7 @@ module intake_adapter() {
             adapter_body();
             
             // Add reinforcement ribs
-            reinforcement_ribs();
+//            reinforcement_ribs();
         }
         
         // Subtract the inner air channel
@@ -75,6 +79,7 @@ module flange() {
         difference() {
             // Outer shape - custom asymmetric flange
             asymmetric_flange_shape();
+
             
             // Inner cutout - the actual slot
             stadium_shape(slot_length, slot_width);
@@ -84,55 +89,71 @@ module flange() {
 
 // Create asymmetric flange outline shape
 module asymmetric_flange_shape() {
-    hull() {
-        // Top side - narrow (wall side)
-        translate([0, slot_width/2 + flange_width_narrow/2, 0])
-            scale([slot_length + 2*flange_width_wide, flange_width_narrow, 1])
-            circle(d=1);
-            
-        // Bottom side - wider
-        translate([0, -slot_width/2 - flange_width_front/2, 0])
-            scale([slot_length + 2*flange_width_wide, flange_width_front, 1])
-            circle(d=1);
-            
-        // Left side
-        translate([-slot_length/2 - flange_width_wide/2, 0, 0])
-            scale([flange_width_wide, slot_width + flange_width_narrow + flange_width_front, 1])
-            circle(d=1);
-            
-        // Right side
-        translate([slot_length/2 + flange_width_wide/2, 0, 0])
-            scale([flange_width_wide, slot_width + flange_width_narrow + flange_width_front, 1])
-            circle(d=1);
-    }
+    flange_offset = (flange_width_front - flange_width_back)/2;
+    echo(flange_offset)
+    translate([0, -flange_offset, 0])
+        rounded_square(slot_length+ 2*flange_width_sides + 2* wall_thickness,
+                       slot_width + flange_width_back + flange_width_front + 2* wall_thickness,
+                       cabinet_mount_head_diameter);
 }
 
 // Main body of the adapter that transitions from slot to fan
 module adapter_body() {
     // Calculate the height of the adapter based on the angle and fan size
-    // Using a reduced height to make the adapter much shorter
     adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20;
     
-    // Use hull to create a smooth transition from slot to fan
-    hull() {
-        // Bottom shape (at the flange)
-        translate([0, 0, flange_thickness - 0.01])
-            linear_extrude(height = 0.01)
-            offset(r = wall_thickness) 
-            stadium_shape(slot_length, slot_width);
+    if (vertical_wall) {
+        // Calculate the distance from center to the most distant point of the fan frame
+        fan_radius = (fan_frame_width / 2) * sqrt(2) + wall_thickness;
         
-        // Top shape (at the fan) - square with rounded corners for Noctua fan
-        translate([0, 0, adapter_height])
-            rotate([adapter_angle, 0, 0])
-            linear_extrude(height = 0.01)
-            rounded_square(fan_frame_width + 2 * wall_thickness, fan_frame_width + 2 * wall_thickness, 3);
+        // Create the body with a vertical wall on the narrow side
+            // Create the main body using a standard approach
+            hull() {
+                // Bottom shape (at the flange)
+                translate([0, 0, flange_thickness ])
+                    linear_extrude(height = 0.01)
+                    offset(r = wall_thickness) 
+                    stadium_shape(slot_length, slot_width);
+                
+                // Top shape (at the fan) - square with rounded corners for Noctua fan
+                translate([0, 0, adapter_height])
+                    rotate([adapter_angle, 0, 0])
+                    linear_extrude(height = 0.01)
+                    rounded_square(fan_frame_width + 2 * wall_thickness, fan_frame_width + 2 * wall_thickness, 3);
+            }
+            
+        
+        // Add a vertical wall on the narrow side
+        hull() {
+            // Bottom shape at the flange
+            translate([0, slot_width/2 + flange_width_back/2, flange_thickness - 0.01])
+                scale([slot_length + 2*flange_width_sides, 0.01, 1])
+                linear_extrude(height = 0.01)
+                circle(d=1);
+  
+
+        }
+    } else {
+        // Use hull to create a smooth transition from slot to fan (original approach)
+        hull() {
+            // Bottom shape (at the flange)
+            translate([0, 0, flange_thickness - 0.01])
+                linear_extrude(height = 0.01)
+                offset(r = wall_thickness) 
+                stadium_shape(slot_length, slot_width);
+            
+            // Top shape (at the fan) - square with rounded corners for Noctua fan
+            translate([0, 0, adapter_height])
+                rotate([adapter_angle, 0, 0])
+                linear_extrude(height = 0.01)
+                rounded_square(fan_frame_width + 2 * wall_thickness, fan_frame_width + 2 * wall_thickness, 3);
+        }
     }
 }
 
 // The inner air channel
 module air_channel() {
     // Calculate the height of the adapter based on the angle and fan size
-    // Using a reduced height to make the adapter much shorter
     adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20;
     
     // Use hull to create a smooth inner transition
@@ -165,10 +186,10 @@ module reinforcement_ribs() {
     
     // Location of mounting holes
     mount_positions = [
-        [slot_length/2 + flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
-        [-slot_length/2 - flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
-        [slot_length/2 + flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0],  // Back-right
-        [-slot_length/2 - flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0]  // Back-left
+        [slot_length/2 + flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
+        [-slot_length/2 - flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
+        [slot_length/2 + flange_width_sides/2, slot_width/2 + flange_width_back/2, 0],  // Back-right
+        [-slot_length/2 - flange_width_sides/2, slot_width/2 + flange_width_back/2, 0]  // Back-left
     ];
     
     // Create reinforcement ribs for each mounting hole, except narrow side
@@ -194,7 +215,7 @@ module reinforcement_ribs() {
     }
     
     // Side ribs (along the sides of the flange)
-    side_rib_length = slot_width + flange_width_narrow/2 + flange_width_front/2;
+    side_rib_length = slot_width + flange_width_back/2 + flange_width_front/2;
     side_rib_width = 4;
     side_rib_offset = 5; // Offset from the edge of the slot
     
@@ -225,10 +246,10 @@ module reinforcement_ribs() {
 module mounting_holes() {
     // Cabinet mounting holes in the flange (asymmetric placement)
     cabinet_mount_positions = [
-        [slot_length/2 + flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
-        [-slot_length/2 - flange_width_wide/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
-        [slot_length/2 + flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0],  // Back-right
-        [-slot_length/2 - flange_width_wide/2, slot_width/2 + flange_width_narrow/2, 0]  // Back-left
+        [slot_length/2 + flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0],  // Front-right
+        [-slot_length/2 - flange_width_sides/2, -slot_width/2 - flange_width_front/2, 0], // Front-left
+        [slot_length/2 + flange_width_sides/2, slot_width/2 + flange_width_back/2, 0],  // Back-right
+        [-slot_length/2 - flange_width_sides/2, slot_width/2 + flange_width_back/2, 0]  // Back-left
     ];
     
     // Ensure the mounting holes have sufficient material around them
@@ -247,9 +268,10 @@ module mounting_holes() {
         }
     }
     
-    // Fan mounting holes for square fan frame
-    // Using a reduced height to make the adapter much shorter
+    // Calculate the height of the adapter based on the angle and fan size
     adapter_height = fan_size * sin(adapter_angle) + fan_thickness * cos(adapter_angle) - 20;
+    
+    // Fan mounting holes for square fan frame
     fan_mount_positions = [
         [fan_mount_spacing/2, fan_mount_spacing/2, 0],   // Top-right
         [fan_mount_spacing/2, -fan_mount_spacing/2, 0],  // Bottom-right
